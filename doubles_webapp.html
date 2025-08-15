@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Doubles Game Webapp</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        table { border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #eee; }
+        .team-select { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>Enter Player Names and Skill Levels (1-10)</h2>
+    <form id="playerForm">
+        <table>
+            <tr><th>Name</th><th>Skill Level</th></tr>
+            <!-- 8 rows for players -->
+            <tr><td><input name="name0" required></td><td><input name="skill0" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name1" required></td><td><input name="skill1" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name2" required></td><td><input name="skill2" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name3" required></td><td><input name="skill3" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name4" required></td><td><input name="skill4" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name5" required></td><td><input name="skill5" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name6" required></td><td><input name="skill6" type="number" min="1" max="10" required></td></tr>
+            <tr><td><input name="name7" required></td><td><input name="skill7" type="number" min="1" max="10" required></td></tr>
+        </table>
+        <button type="submit">Generate Doubles</button>
+    </form>
+
+    <div id="results"></div>
+    <div id="games"></div>
+
+    <script>
+        function getCombinations(arr) {
+            let combos = [];
+            for (let i = 0; i < arr.length; i++) {
+                for (let j = i + 1; j < arr.length; j++) {
+                    combos.push([arr[i], arr[j]]);
+                }
+            }
+            return combos;
+        }
+
+        // Track used teams by their player names (sorted)
+        let usedTeams = new Set();
+
+        // Track games by round, each round has two courts
+        let gamesByRound = [];
+        let currentRound = 0;
+        let currentCourt = 0;
+
+        function renderPairs(pairSkills) {
+            let html = '<h3>Unique Doubles (Sorted by Skill)</h3>';
+            html += '<table><tr><th>Pair</th><th>Combined Skill</th><th>Select</th></tr>';
+            pairSkills.forEach((p, idx) => {
+                const teamKey = p.pair.slice().sort().join(',');
+                const color = usedTeams.has(teamKey) ? 'red' : 'green';
+                html += `<tr>
+                    <td style="color:${color};font-weight:bold">${p.pair[0]} & ${p.pair[1]}</td>
+                    <td>${p.skill}</td>
+                    <td><input type="checkbox" class="pair-select" value="${idx}" ${usedTeams.has(teamKey) ? 'disabled' : ''}></td>
+                </tr>`;
+            });
+            html += '</table>';
+            html += `<div>Total pairs: ${pairSkills.length}</div>`;
+            html += `<div class="team-select"><button id="makeGameBtn">Create 2vs2 Game (Select 2 pairs)</button></div>`;
+            document.getElementById('results').innerHTML = html;
+        }
+
+        let pairSkillsGlobal = [];
+
+        document.getElementById('playerForm').onsubmit = function(e) {
+            e.preventDefault();
+            const names = [];
+            const skills = [];
+            for (let i = 0; i < 8; i++) {
+                names.push(this['name'+i].value.trim());
+                skills.push(parseInt(this['skill'+i].value, 10));
+            }
+            // Build player objects
+            const players = names.map((name, idx) => ({ name, skill: skills[idx] }));
+
+            // Generate all unique doubles
+            const pairs = getCombinations(players);
+            const pairSkills = pairs.map(pair => ({
+                pair: [pair[0].name, pair[1].name],
+                skill: pair[0].skill + pair[1].skill
+            }));
+            pairSkills.sort((a, b) => b.skill - a.skill);
+
+            pairSkillsGlobal = pairSkills;
+            renderPairs(pairSkills);
+            document.getElementById('games').innerHTML = '';
+        };
+
+        function renderGames() {
+            let html = '';
+            gamesByRound.forEach((roundGames, roundIdx) => {
+                html += `<div style="border:2px solid #333; margin:15px 0; padding:10px; border-radius:8px;">
+                    <h3>Game ${roundIdx + 1}</h3>
+                    <div style="display:flex; gap:30px;">`;
+                roundGames.forEach((game, courtIdx) => {
+                    html += `<div>
+                        <b>Court ${courtIdx + 1}:</b><br>
+                        <span style="color:red">${game.team1[0]} & ${game.team1[1]}</span> (Skill: ${game.skill1})<br>
+                        <span style="color:red">${game.team2[0]} & ${game.team2[1]}</span> (Skill: ${game.skill2})<br>
+                    </div>`;
+                });
+                html += `</div></div>`;
+            });
+            document.getElementById('games').innerHTML = html;
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'makeGameBtn') {
+                const checked = Array.from(document.querySelectorAll('.pair-select:checked')).map(cb => parseInt(cb.value));
+                if (checked.length !== 2) {
+                    alert('Please select exactly 2 pairs for a 2vs2 game.');
+                    return;
+                }
+                const team1 = pairSkillsGlobal[checked[0]].pair;
+                const team2 = pairSkillsGlobal[checked[1]].pair;
+                const allPlayers = team1.concat(team2);
+                const uniquePlayers = new Set(allPlayers);
+                if (uniquePlayers.size < 4) {
+                    document.getElementById('games').innerHTML = '<span style="color:red;">Teams cannot have overlapping players!</span>';
+                    return;
+                }
+                // Mark teams as used
+                usedTeams.add(team1.slice().sort().join(','));
+                usedTeams.add(team2.slice().sort().join(','));
+
+                // Prepare game data
+                const gameData = {
+                    team1: team1,
+                    team2: team2,
+                    skill1: pairSkillsGlobal[checked[0]].skill,
+                    skill2: pairSkillsGlobal[checked[1]].skill
+                };
+
+                // Add to current round/court
+                if (!gamesByRound[currentRound]) gamesByRound[currentRound] = [];
+                gamesByRound[currentRound].push(gameData);
+                currentCourt++;
+                // If both courts filled, move to next round
+                if (currentCourt === 2) {
+                    currentRound++;
+                    currentCourt = 0;
+                }
+
+                // Re-render games and pairs
+                renderGames();
+                renderPairs(pairSkillsGlobal);
+            }
+        });
+    </script>
+</body>
+</html>
