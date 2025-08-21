@@ -9,6 +9,9 @@
         th, td { border: 1px solid #ccc; padding: 8px; }
         th { background: #eee; }
         .team-select { margin-top: 20px; }
+        .main-flex { display: flex; gap: 40px; align-items: flex-start; }
+        #results { min-width: 420px; }
+        #games { min-width: 350px; }
     </style>
 </head>
 <body>
@@ -29,8 +32,10 @@
         <button type="submit">Generate Doubles</button>
     </form>
 
-    <div id="results"></div>
-    <div id="games"></div>
+    <div class="main-flex">
+        <div id="results"></div>
+        <div id="games"></div>
+    </div>
     <div id="courtSelect"></div>
 
     <script>
