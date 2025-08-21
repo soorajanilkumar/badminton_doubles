@@ -45,7 +45,10 @@
 
     <div class="main-flex">
         <div id="results"></div>
-        <div id="games"></div>
+        <div>
+            <button id="printGamesBtn" style="margin-bottom:20px; display:none;">Print Games</button>
+            <div id="games"></div>
+        </div>
     </div>
     <div id="courtSelect"></div>
 
@@ -67,6 +70,9 @@
 
         function renderPairs(pairSkills) {
             let html = '<h3>Unique Doubles (Sorted by Skill)</h3>';
+            if (selectedCourt !== null) {
+                html += `<div class="team-select" style="margin-bottom:10px;"><button id="assignGameBtn">Assign 2vs2 to Selected Court</button></div>`;
+            }
             html += '<table><tr><th>Pair</th><th>Combined Skill</th><th>Select</th></tr>';
 
             // If a court is selected, get already assigned players in the same round
@@ -100,9 +106,6 @@
             });
             html += '</table>';
             html += `<div>Total pairs: ${pairSkills.length}</div>`;
-            if (selectedCourt !== null) {
-                html += `<div class="team-select"><button id="assignGameBtn">Assign 2vs2 to Selected Court</button></div>`;
-            }
             document.getElementById('results').innerHTML = html;
         }
 
@@ -163,6 +166,7 @@
             gamesByRound = Array.from({length: numGames}, () => Array(numCourts).fill(null));
             renderGames();
             renderPairs(pairSkills);
+            document.getElementById('printGamesBtn').style.display = 'inline-block';
         };
 
         document.addEventListener('click', function(e) {
@@ -229,6 +233,53 @@
                 }
             }
         });
+
+        document.getElementById('printGamesBtn').onclick = function() {
+            let html = `
+            <html>
+            <head>
+                <title>Games Print View</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 30px; }
+                    table { border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ccc; padding: 8px; }
+                    th { background: #eee; }
+                </style>
+            </head>
+            <body>
+                <h2>Games Schedule</h2>
+            `;
+
+            gamesByRound.forEach((roundGames, roundIdx) => {
+                html += `<h3>Game ${roundIdx + 1}</h3>
+                <table>
+                    <tr>
+                        <th>Court</th>
+                        <th>Team 1</th>
+                        <th>Team 2</th>
+                    </tr>`;
+                roundGames.forEach((game, courtIdx) => {
+                    if (game) {
+                        html += `<tr>
+                            <td>${courtIdx + 1}</td>
+                            <td>${game.team1[0]} & ${game.team1[1]}</td>
+                            <td>${game.team2[0]} & ${game.team2[1]}</td>
+                        </tr>`;
+                    } else {
+                        html += `<tr>
+                            <td>${courtIdx + 1}</td>
+                            <td colspan="2" style="color:gray">[Empty]</td>
+                        </tr>`;
+                    }
+                });
+                html += `</table>`;
+            });
+
+            html += `</body></html>`;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(html);
+            printWindow.document.close();
+        };
     </script>
 </body>
 </html>
