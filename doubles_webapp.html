@@ -16,6 +16,17 @@
 </head>
 <body>
     <h2>Enter Player Names and Skill Levels (1-10)</h2>
+    <div style="margin-bottom:18px;">
+        <label>
+            Number of Games:
+            <input type="number" id="numGames" value="5" min="1" max="20" style="width:60px;">
+        </label>
+        &nbsp;&nbsp;
+        <label>
+            Courts per Game:
+            <input type="number" id="numCourts" value="2" min="1" max="8" style="width:60px;">
+        </label>
+    </div>
     <form id="playerForm">
         <table>
             <tr><th>Name</th><th>Skill Level</th></tr>
@@ -82,7 +93,7 @@
                 html += `<div style="border:2px solid #333; margin:15px 0; padding:10px; border-radius:8px;">
                     <h3>Game ${roundIdx + 1}</h3>
                     <div style="display:flex; gap:30px;">`;
-                for (let courtIdx = 0; courtIdx < 2; courtIdx++) {
+                for (let courtIdx = 0; courtIdx < roundGames.length; courtIdx++) {
                     const game = roundGames[courtIdx];
                     const isSelected = selectedCourt && selectedCourt.roundIdx === roundIdx && selectedCourt.courtIdx === courtIdx;
                     if (game) {
@@ -107,6 +118,8 @@
 
         document.getElementById('playerForm').onsubmit = function(e) {
             e.preventDefault();
+            const numGames = parseInt(document.getElementById('numGames').value, 10);
+            const numCourts = parseInt(document.getElementById('numCourts').value, 10);
             const names = [];
             const skills = [];
             for (let i = 0; i < 8; i++) {
@@ -127,8 +140,8 @@
             pairSkillsGlobal = pairSkills;
             usedTeams = new Set();
             selectedCourt = null;
-            // Pre-generate 5 games with 2 courts each, all empty
-            gamesByRound = Array.from({length: 5}, () => [null, null]);
+            // Pre-generate games with user-defined courts
+            gamesByRound = Array.from({length: numGames}, () => Array(numCourts).fill(null));
             renderGames();
             renderPairs(pairSkills);
         };

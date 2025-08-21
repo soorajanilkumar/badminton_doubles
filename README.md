@@ -8,5 +8,5 @@ Project to test creating teams for doubles.
 - [ ] Skill level 1-5 with drop down button (beginner, intermediate etc)
 - [ ] Dark Mode
 - [ ] Variable number of players
-- [ ] Variable number of courts and games
+- [x] Variable number of courts and games
 - [ ] Generate a pdf or simple html page with games sans skill score
