@@ -68,11 +68,30 @@
         function renderPairs(pairSkills) {
             let html = '<h3>Unique Doubles (Sorted by Skill)</h3>';
             html += '<table><tr><th>Pair</th><th>Combined Skill</th><th>Select</th></tr>';
+
+            // If a court is selected, get already assigned players in the same round
+            let assignedPlayers = new Set();
+            if (selectedCourt !== null) {
+                const roundGames = gamesByRound[selectedCourt.roundIdx];
+                roundGames.forEach((game, idx) => {
+                    if (game && idx !== selectedCourt.courtIdx) {
+                        assignedPlayers.add(game.team1[0]);
+                        assignedPlayers.add(game.team1[1]);
+                        assignedPlayers.add(game.team2[0]);
+                        assignedPlayers.add(game.team2[1]);
+                    }
+                });
+            }
+
             pairSkills.forEach((p, idx) => {
                 const teamKey = p.pair.slice().sort().join(',');
                 const color = usedTeams.has(teamKey) ? 'red' : 'green';
-                // Only enable selection if a court is selected and team is unused
-                const disabled = usedTeams.has(teamKey) || selectedCourt === null ? 'disabled' : '';
+                // Only enable selection if a court is selected, team is unused, and no overlap with assignedPlayers
+                let overlap = false;
+                if (selectedCourt !== null) {
+                    overlap = p.pair.some(player => assignedPlayers.has(player));
+                }
+                const disabled = usedTeams.has(teamKey) || selectedCourt === null || overlap ? 'disabled' : '';
                 html += `<tr>
                     <td style="color:${color};font-weight:bold">${p.pair[0]} & ${p.pair[1]}</td>
                     <td>${p.skill}</td>
