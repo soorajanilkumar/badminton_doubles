@@ -100,49 +100,49 @@
         let gamesByRound = [];
         let pairSkillsGlobal = [];
         let selectedCourt = null; // {roundIdx, courtIdx}
+        let selectedTeamCol = null; // "team1" or "team2"
 
-        function renderPairs(pairSkills) {
-            let html = '<h3>Doubles Team (Sorted by Skill)</h3>';
-            if (selectedCourt !== null) {
-                html += `<div class="team-select" style="margin-bottom:10px;"><button id="assignGameBtn">Assign 2vs2 to Selected Court</button></div>`;
-            }
-            html += '<table><tr><th>Player 1</th><th>Player 2</th><th>Combined Skill</th><th>Select</th></tr>';
-
-            // If a court is selected, get already assigned players in the same round
-            let assignedPlayers = new Set();
-            if (selectedCourt !== null) {
-                const roundGames = gamesByRound[selectedCourt.roundIdx];
-                roundGames.forEach((game, idx) => {
-                    if (game && idx !== selectedCourt.courtIdx) {
-                        assignedPlayers.add(game.team1[0]);
-                        assignedPlayers.add(game.team1[1]);
-                        assignedPlayers.add(game.team2[0]);
-                        assignedPlayers.add(game.team2[1]);
-                    }
-                });
-            }
-
-            pairSkills.forEach((p, idx) => {
-                const teamKey = p.pair.slice().sort().join(',');
-                const color = usedTeams.has(teamKey) ? 'red' : 'green';
-                // Only enable selection if a court is selected, team is unused, and no overlap with assignedPlayers
-                let overlap = false;
-                if (selectedCourt !== null) {
-                    overlap = p.pair.some(player => assignedPlayers.has(player));
+        // Helper to get available teams for a court and column
+        function getAvailableTeams(roundIdx, courtIdx, teamCol) {
+            // Get all used teams
+            const used = new Set(usedTeams);
+            // Get already assigned players in this court
+            const assignedPlayers = new Set();
+            const game = gamesByRound[roundIdx][courtIdx];
+            if (game) {
+                if (teamCol === "team2" && game.team1) {
+                    assignedPlayers.add(game.team1[0]);
+                    assignedPlayers.add(game.team1[1]);
                 }
-                const disabled = usedTeams.has(teamKey) || selectedCourt === null || overlap ? 'disabled' : '';
-                html += `<tr>
-                    <td style="color:${color};font-weight:bold">${p.pair[0]}</td>
-                    <td style="color:${color};font-weight:bold">${p.pair[1]}</td>
-                    <td>${p.skill}</td>
-                    <td><input type="checkbox" class="pair-select" value="${idx}" ${disabled}></td>
-                </tr>`;
+                if (teamCol === "team1" && game.team2) {
+                    assignedPlayers.add(game.team2[0]);
+                    assignedPlayers.add(game.team2[1]);
+                }
+            }
+            // Also, filter out teams with players already assigned in other courts of same round
+            const roundGames = gamesByRound[roundIdx];
+            roundGames.forEach((g, idx) => {
+                if (g && idx !== courtIdx) {
+                    if (g.team1) {
+                        assignedPlayers.add(g.team1[0]);
+                        assignedPlayers.add(g.team1[1]);
+                    }
+                    if (g.team2) {
+                        assignedPlayers.add(g.team2[0]);
+                        assignedPlayers.add(g.team2[1]);
+                    }
+                }
             });
-            html += '</table>';
-            html += `<div>Total pairs: ${pairSkills.length}</div>`;
-            document.getElementById('results').innerHTML = html;
+            // Filter teams: not used, and no overlap with assignedPlayers
+            return pairSkillsGlobal.filter(p => {
+                const teamKey = p.pair.slice().sort().join(',');
+                if (used.has(teamKey)) return false;
+                if (p.pair.some(player => assignedPlayers.has(player))) return false;
+                return true;
+            });
         }
 
+        // Render games with select buttons for team1/team2
         function renderGames() {
             let html = '';
             gamesByRound.forEach((roundGames, roundIdx) => {
@@ -152,24 +152,74 @@
                 for (let courtIdx = 0; courtIdx < roundGames.length; courtIdx++) {
                     const game = roundGames[courtIdx];
                     const isSelected = selectedCourt && selectedCourt.roundIdx === roundIdx && selectedCourt.courtIdx === courtIdx;
-                    if (game) {
-                        html += `<div style="background:${isSelected ? '#e0ffe0' : 'none'};padding:5px;">
-                            <b>Court ${courtIdx + 1}:</b><br>
-                            <span style="color:red">${game.team1[0]} & ${game.team1[1]}</span> (Skill: ${game.skill1})<br>
-                            <span style="color:red">${game.team2[0]} & ${game.team2[1]}</span> (Skill: ${game.skill2})<br>
-                            <button class="delete-game-btn" data-round="${roundIdx}" data-court="${courtIdx}">Delete</button>
-                        </div>`;
+                    html += `<div style="background:${isSelected ? '#e0ffe0' : 'none'};padding:5px;position:relative;">
+                        <b>Court ${courtIdx + 1}:</b><br>`;
+                    // Team 1
+                    if (game && game.team1) {
+                        html += `<span style="color:red">${game.team1[0]} & ${game.team1[1]}</span> (Skill: ${game.skill1})<br>`;
                     } else {
-                        html += `<div style="background:${isSelected ? '#e0ffe0' : 'none'};padding:5px;">
-                            <b>Court ${courtIdx + 1}:</b><br>
-                            <span style="color:gray">[Empty]</span><br>
-                            <button class="select-court-btn" data-round="${roundIdx}" data-court="${courtIdx}">Select</button>
-                        </div>`;
+                        html += `<span style="color:gray">[Empty]</span><br>`;
                     }
+                    html += `<button class="select-team-btn" data-round="${roundIdx}" data-court="${courtIdx}" data-team="team1" style="margin-bottom:4px;">Select Team 1</button><br>`;
+                    // Team 2
+                    if (game && game.team2) {
+                        html += `<span style="color:red">${game.team2[0]} & ${game.team2[1]}</span> (Skill: ${game.skill2})<br>`;
+                    } else {
+                        html += `<span style="color:gray">[Empty]</span><br>`;
+                    }
+                    html += `<button class="select-team-btn" data-round="${roundIdx}" data-court="${courtIdx}" data-team="team2" style="margin-bottom:4px;">Select Team 2</button><br>`;
+                    // Delete button
+                    html += `<button class="delete-game-btn" data-round="${roundIdx}" data-court="${courtIdx}">Delete</button>`;
+
+                    // Render dropdown inline if this court/team is selected
+                    if (isSelected && selectedTeamCol) {
+                        const teamCol = selectedTeamCol;
+                        const availableTeams = getAvailableTeams(roundIdx, courtIdx, teamCol);
+                        if (availableTeams.length === 0) {
+                            html += `<div style="color:red; margin-top:8px;">No available teams for this slot.</div>`;
+                        } else {
+                            let options = availableTeams.map((p, idx) =>
+                                `<option value="${idx}">${p.pair[0]} & ${p.pair[1]} (Skill: ${p.skill})</option>`
+                            ).join('');
+                            html += `
+                                <div style="margin-top:8px;">
+                                    <label>Select team for ${teamCol === "team1" ? "Team 1" : "Team 2"}:</label>
+                                    <select id="teamDropdown">${options}</select>
+                                    <button id="setTeamBtn">Set Team</button>
+                                </div>
+                            `;
+                        }
+                    }
+
+                    html += `</div>`;
                 }
                 html += `</div></div>`;
             });
             document.getElementById('games').innerHTML = html;
+            // Remove renderTeamDropdown(); as dropdown is now inline
+        }
+
+        // Render dropdown for team selection if a team column is selected
+        function renderTeamDropdown() {
+            const container = document.getElementById('courtSelect');
+            container.innerHTML = '';
+            if (selectedCourt && selectedTeamCol) {
+                const {roundIdx, courtIdx} = selectedCourt;
+                const teamCol = selectedTeamCol;
+                const availableTeams = getAvailableTeams(roundIdx, courtIdx, teamCol);
+                if (availableTeams.length === 0) {
+                    container.innerHTML = `<div style="color:red;">No available teams for this slot.</div>`;
+                    return;
+                }
+                let options = availableTeams.map((p, idx) =>
+                    `<option value="${idx}">${p.pair[0]} & ${p.pair[1]} (Skill: ${p.skill})</option>`
+                ).join('');
+                container.innerHTML = `
+                    <label>Select team for ${teamCol === "team1" ? "Team 1" : "Team 2"}:</label>
+                    <select id="teamDropdown">${options}</select>
+                    <button id="setTeamBtn">Set Team</button>
+                `;
+            }
         }
 
         document.getElementById('playerForm').onsubmit = function(e) {
@@ -204,50 +254,37 @@
         };
 
         document.addEventListener('click', function(e) {
-            // Select a court
-            if (e.target && e.target.classList.contains('select-court-btn')) {
+            // Select a team slot
+            if (e.target && e.target.classList.contains('select-team-btn')) {
                 selectedCourt = {
                     roundIdx: parseInt(e.target.getAttribute('data-round')),
                     courtIdx: parseInt(e.target.getAttribute('data-court'))
                 };
+                selectedTeamCol = e.target.getAttribute('data-team');
                 renderGames();
-                renderPairs(pairSkillsGlobal);
             }
 
-            // Assign a game to selected court
-            if (e.target && e.target.id === 'assignGameBtn') {
-                const checked = Array.from(document.querySelectorAll('.pair-select:checked')).map(cb => parseInt(cb.value));
-                if (checked.length !== 2) {
-                    alert('Please select exactly 2 pairs for a 2vs2 game.');
-                    return;
-                }
-                const team1 = pairSkillsGlobal[checked[0]].pair;
-                const team2 = pairSkillsGlobal[checked[1]].pair;
-                const allPlayers = team1.concat(team2);
-                const uniquePlayers = new Set(allPlayers);
-                if (uniquePlayers.size < 4) {
-                    alert('Teams cannot have overlapping players!');
-                    return;
-                }
-                // Mark teams as used
-                usedTeams.add(team1.slice().sort().join(','));
-                usedTeams.add(team2.slice().sort().join(','));
-
-                // Prepare game data
-                const gameData = {
-                    team1: team1,
-                    team2: team2,
-                    skill1: pairSkillsGlobal[checked[0]].skill,
-                    skill2: pairSkillsGlobal[checked[1]].skill
-                };
-
-                // Assign to selected court
-                if (selectedCourt) {
-                    gamesByRound[selectedCourt.roundIdx][selectedCourt.courtIdx] = gameData;
+            // Set team from dropdown
+            if (e.target && e.target.id === 'setTeamBtn') {
+                const {roundIdx, courtIdx} = selectedCourt;
+                const teamCol = selectedTeamCol;
+                const availableTeams = getAvailableTeams(roundIdx, courtIdx, teamCol);
+                const selIdx = document.getElementById('teamDropdown').value;
+                const teamData = availableTeams[selIdx];
+                if (!teamData) return;
+                // Mark team as used
+                usedTeams.add(teamData.pair.slice().sort().join(','));
+                // Set team in gamesByRound
+                if (!gamesByRound[roundIdx][courtIdx]) gamesByRound[roundIdx][courtIdx] = {};
+                gamesByRound[roundIdx][courtIdx][teamCol] = teamData.pair;
+                gamesByRound[roundIdx][courtIdx][teamCol === "team1" ? "skill1" : "skill2"] = teamData.skill;
+                // If both teams are set, clear selection
+                if (gamesByRound[roundIdx][courtIdx].team1 && gamesByRound[roundIdx][courtIdx].team2) {
                     selectedCourt = null;
-                    renderGames();
-                    renderPairs(pairSkillsGlobal);
+                    selectedTeamCol = null;
                 }
+                renderGames();
+                renderPairs(pairSkillsGlobal); // <-- Add this line to update the left table
             }
 
             // Handle game deletion
@@ -256,14 +293,12 @@
                 const courtIdx = parseInt(e.target.getAttribute('data-court'));
                 const game = gamesByRound[roundIdx][courtIdx];
                 if (game) {
-                    // Unmark teams as used
-                    usedTeams.delete(game.team1.slice().sort().join(','));
-                    usedTeams.delete(game.team2.slice().sort().join(','));
-                    // Remove game
+                    if (game.team1) usedTeams.delete(game.team1.slice().sort().join(','));
+                    if (game.team2) usedTeams.delete(game.team2.slice().sort().join(','));
                     gamesByRound[roundIdx][courtIdx] = null;
                     selectedCourt = null;
+                    selectedTeamCol = null;
                     renderGames();
-                    renderPairs(pairSkillsGlobal);
                 }
             }
         });
@@ -325,6 +360,23 @@
                 themeToggleBtn.textContent = '🌙 Dark Theme';
             }
         };
+
+        function renderPairs(pairSkills) {
+            let html = '<h3>Doubles Team (Sorted by Skill)</h3>';
+            html += '<table><tr><th>Player 1</th><th>Player 2</th><th>Combined Skill</th></tr>';
+            pairSkills.forEach((p, idx) => {
+                const teamKey = p.pair.slice().sort().join(',');
+                const color = usedTeams.has(teamKey) ? 'red' : 'green';
+                html += `<tr>
+                    <td style="color:${color};font-weight:bold">${p.pair[0]}</td>
+                    <td style="color:${color};font-weight:bold">${p.pair[1]}</td>
+                    <td>${p.skill}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            html += `<div>Total pairs: ${pairSkills.length}</div>`;
+            document.getElementById('results').innerHTML = html;
+        }
     </script>
 </body>
 </html>
